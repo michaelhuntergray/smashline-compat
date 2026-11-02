@@ -104,6 +104,8 @@
 )]
 
 
+#[macro_use]
+pub mod slog;
 mod cloning;
 
 pub mod api;
@@ -127,18 +129,31 @@ pub fn main() {
         return;
     }
 
+    slog!("=== smashline {} main() start", env!("CARGO_PKG_VERSION"));
     create_agent::install_create_agent_hooks();
+    slog!("ok create_agent_hooks");
     create_agent::install_create_agent_share_hooks();
+    slog!("ok create_agent_share_hooks");
     create_agent::install_status_create_agent_hooks();
+    slog!("ok status_create_agent_hooks");
     nro_hook::install();
+    slog!("ok nro_hook");
     interpreter::install();
+    slog!("ok interpreter");
     runtime_reload::install();
+    slog!("ok runtime_reload");
     state_callback::install_state_callback_hooks();
+    slog!("ok state_callback");
     callbacks::install_callback_hooks();
+    slog!("ok callbacks");
     unwind::install_unwind_patches();
+    slog!("ok unwind");
     cloning::install();
+    slog!("ok cloning");
     params::install_param_hooks();
+    slog!("ok params");
     effects::install_effect_transplant_hooks();
+    slog!("ok effects; main() done");
 
     std::panic::set_hook(Box::new(|info| {
         let location = info.location().unwrap();

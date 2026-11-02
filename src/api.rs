@@ -329,6 +329,7 @@ pub extern "C" fn smashline_clone_weapon(
     original_article_id: i32,
     use_original_code: bool,
 ) -> CloneWeapon {
+    slog!("clone_weapon(id={}, use_orig={})", original_article_id, use_original_code);
     let owner_name = owner_name.as_str().unwrap().to_string();
     let article_name = article_name.as_str().unwrap().to_string();
     println!(
@@ -512,6 +513,7 @@ pub extern "C" fn smashline_update_weapon_count(
     generate_article_id: i32,
     new_count: i32,
 ) {
+    slog!("update_weapon_count(fighter={}, article={}, count={})", fighter_id, generate_article_id, new_count);
     let mut descriptors = crate::cloning::fighters::descriptors::ARTICLE_DESCRIPTOR_REPLACE.write();
     let descriptor = descriptors
         .entry(fighter_id)
@@ -551,6 +553,7 @@ pub extern "C" fn smashline_whitelist_kirby_copy_article(
     fighter_id: i32,
     generate_article_id: i32,
 ) {
+    slog!("whitelist_kirby_copy_article(fighter={}, article={})", fighter_id, generate_article_id);
     let mut copy_whitelist = crate::cloning::fighters::descriptors::KIRBY_COPY_ARTICLE_WHITELIST.write();
     if let Some(whitelist) = copy_whitelist.get_mut(&fighter_id) {
         if whitelist.contains(&generate_article_id) {
