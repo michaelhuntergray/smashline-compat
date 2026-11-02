@@ -559,7 +559,7 @@ pub fn install() {
         article_init_count_all_rows,
         article_init_pool_skip_unlimited_items,
         article_init_skip_item_rows,
-        article_destroy_skip_item_rows,
+        // SKIPPED (crashes on install, 0x3d3ffc): article_destroy_skip_item_rows,
         article_generate_route_by_flag,
         article_is_generatable_route_by_flag,
         article_active_num_route_by_flag,
