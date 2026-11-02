@@ -106,5 +106,5 @@ pub fn get_fighter_vtable_hook(kind: i32) -> *const usize {
 }
 
 pub fn install() {
-    skyline::install_hooks!(get_fighter_vtable_hook);
+    crate::install_logged!(get_fighter_vtable_hook);
 }

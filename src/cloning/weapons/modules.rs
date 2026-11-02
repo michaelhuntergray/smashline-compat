@@ -126,7 +126,7 @@ unsafe fn weapon_init_factory_row(ctx: &mut InlineCtx) {
 }
 
 pub fn install() {
-    skyline::install_hooks!(
+    crate::install_logged!(
         weapon_init_factory_kind,
         weapon_init_factory_row
     );

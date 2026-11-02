@@ -12,6 +12,11 @@ pub fn log(msg: &str) {
 }
 
 #[macro_export]
+macro_rules! install_logged {
+    ($($h:ident),* $(,)?) => { $( $crate::slog!("hook {}", stringify!($h)); skyline::install_hook!($h); )* };
+}
+
+#[macro_export]
 macro_rules! slog {
     ($($arg:tt)*) => { $crate::slog::log(&format!($($arg)*)) };
 }

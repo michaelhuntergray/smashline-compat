@@ -301,7 +301,7 @@ fn dynamic_module_manager_unload_hook(manager: *mut u64, name: &Hash40) -> u64 {
 }
 
 pub fn install_module_hooks() {
-    skyline::install_hooks!(load_fighter_code_module_hook, dynamic_module_manager_unload_hook);
+    crate::install_logged!(load_fighter_code_module_hook, dynamic_module_manager_unload_hook);
 }
 
 pub fn unload_fighter_module(id: i32) {

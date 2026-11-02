@@ -126,7 +126,7 @@ macro_rules! decl_hooks {
         )*
 
         fn $install_fn() {
-            skyline::install_hooks!(
+            crate::install_logged!(
                 $(
                     $name,
                 )*
@@ -198,7 +198,7 @@ decl_hooks! {
 
 pub fn install() {
     // skyline::patching::Patch::in_text(0x2310ec0).nop().unwrap();
-    // skyline::install_hooks!(
+    // crate::install_logged!(
     //     set_current_player_id,
     //     lookup_fighter_kind_hash,
     //     update_selected_fighter,
@@ -208,6 +208,8 @@ pub fn install() {
 
     // install_fighter_name_hooks();
 
+    slog!("fighters: descriptors");
     descriptors::install();
+    slog!("fighters: vtables");
     vtables::install();
 }

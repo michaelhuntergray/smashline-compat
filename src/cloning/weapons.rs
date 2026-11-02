@@ -174,7 +174,7 @@ macro_rules! decl_hooks {
             $(
                 let _ = skyline::patching::Patch::in_text($offset).nop();
             )*
-            skyline::install_hooks!(
+            crate::install_logged!(
                 $(
                     $name,
                 )*
@@ -254,16 +254,23 @@ unsafe extern "C" fn get_pocket_ui_param(param_1: *mut PocketUIParams) -> u64 {
 }
 
 pub fn install() {
+    slog!("weapons: name_hooks");
     install_weapon_name_hooks();
+    slog!("weapons: owner_hooks");
     install_weapon_owner_hooks();
+    slog!("weapons: owner_name_hooks");
     install_weapon_owner_name_hooks();
+    slog!("weapons: category_name_hooks");
     install_weapon_category_name_hooks();
+    slog!("weapons: owner_category_hooks");
     install_weapon_owner_category_hooks();
 
+    slog!("weapons: vtables");
     vtables::install();
+    slog!("weapons: modules");
     modules::install();
 
-    skyline::install_hooks!(
+    crate::install_logged!(
         get_weapon_base_kind_hook,
         get_static_weapon_data_hook,
         weapon_init_owner_category,

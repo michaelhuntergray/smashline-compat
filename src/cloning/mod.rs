@@ -36,8 +36,11 @@ fn fighter_initialize_object_data(
 }
 
 pub fn install() {
+    slog!("cloning: fighters::install");
     fighters::install();
+    slog!("cloning: weapons::install");
     weapons::install();
+    slog!("cloning: install_module_hooks");
     crate::utils::install_module_hooks();
-    skyline::install_hooks!(fighter_initialize_object_data);
+    crate::install_logged!(fighter_initialize_object_data);
 }

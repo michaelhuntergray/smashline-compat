@@ -66,7 +66,7 @@ pub fn get_weapon_vtable_hook(kind: i32) -> *const usize {
 }
 
 pub fn install() {
-    skyline::install_hooks!(
+    crate::install_logged!(
         get_weapon_vtable_hook
     );
 }

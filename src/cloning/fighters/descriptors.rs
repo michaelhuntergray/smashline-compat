@@ -443,7 +443,7 @@ macro_rules! decl_hooks_kirby_get_kind {
             }
         )*
         fn $install_fn() {
-            skyline::install_hooks!(
+            crate::install_logged!(
                 $(
                     $name,
                 )*
@@ -461,7 +461,7 @@ macro_rules! decl_hooks_kirby {
             }
         )*
         fn $install_fn() {
-            skyline::install_hooks!(
+            crate::install_logged!(
                 $(
                     $name,
                 )*
@@ -554,7 +554,7 @@ unsafe fn kirby_get_copy_articles(ctx: &mut InlineCtx, store_reg: usize) {
 }
 
 pub fn install() {
-    skyline::install_hooks!(
+    crate::install_logged!(
         get_static_fighter_data,
         article_init_count_all_rows,
         article_init_pool_skip_unlimited_items,
@@ -566,6 +566,8 @@ pub fn install() {
         article_fini_route_by_flag,
     );
 
+    slog!("descriptors: kirby_copy_kind_hooks");
     install_kirby_copy_kind_hooks();
+    slog!("descriptors: kirby_copy_hooks");
     install_kirby_copy_hooks();
 }
