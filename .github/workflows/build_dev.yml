@@ -1,0 +1,23 @@
+name: Build plugin (dev)
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    container:
+      image: wuboyth/skyline-plugin-builder:latest
+    steps:
+      - uses: actions/checkout@v4.1.4
+      - name: Build NRO
+        run: |
+          cargo skyline build --release && mv ./target/aarch64-skyline-switch/release/libsmashline_plugin.nro ./
+        env:
+          HOME: /root
+      - name: Upload plugin artifact
+        uses: actions/upload-artifact@v4.3.3
+        with:
+          name: smashline_plugin
+          path: libsmashline_plugin.nro
