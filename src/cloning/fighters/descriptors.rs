@@ -228,6 +228,13 @@ pub static CURRENT_KIRBY_COPY: AtomicI32 = AtomicI32::new(-1);
 
 pub static KIRBY_COPY_ARTICLE_WHITELIST: RwLock<BTreeMap<i32, Vec<i32>>> = RwLock::new(BTreeMap::new());
 
+// compat: 1.6.x calls name articles by weapon kind, not by generate index. A clone counts as its
+// original kind, matching 1.6.x, where clones kept the original weapon kind.
+pub static LEGACY_WEAPON_COUNT: RwLock<BTreeMap<i32, i32>> = RwLock::new(BTreeMap::new());
+pub static LEGACY_KIRBY_WHITELIST: RwLock<BTreeMap<i32, Vec<i32>>> = RwLock::new(BTreeMap::new());
+// Source weapon kind of each row of a fighter's built article table, by fighter kind.
+pub static ARTICLE_SOURCE_KINDS: RwLock<BTreeMap<i32, Vec<i32>>> = RwLock::new(BTreeMap::new());
+
 pub static FIGHTER_DATA_CACHE: RwLock<BTreeMap<i32, &'static StaticFighterData>> =
     RwLock::new(BTreeMap::new());
 pub static KIRBY_COPY_DATA_CACHE: RwLock<BTreeMap<i32, &'static StaticArticleData>> =
@@ -347,10 +354,12 @@ fn get_static_fighter_data(kind: i32) -> *const StaticFighterData {
     let mut new_descriptors = vec![];
 
     new_descriptors.extend_from_slice(unsafe { (*original_data).articles_as_slice() });
+    let mut source_kinds: Vec<i32> = new_descriptors.iter().map(|a| a.weapon_id).collect();
 
     if let Some(new_articles) = NEW_ARTICLES.read().get(&kind) {
 
         for new_article in new_articles.iter() {
+            source_kinds.push(new_article.original_weapon_id);
             println!("[smashline::weapons] Attempting to append article {:#x} to the article table", new_article.new_weapon_id);
             let source_data = call_original!(new_article.original_owner);
 
@@ -381,6 +390,16 @@ fn get_static_fighter_data(kind: i32) -> *const StaticFighterData {
             }
         }
     }
+
+    {
+        let legacy_counts = LEGACY_WEAPON_COUNT.read();
+        for (article, source) in new_descriptors.iter_mut().zip(source_kinds.iter()) {
+            if let Some(new_count) = legacy_counts.get(source) {
+                article.max_count = *new_count;
+            }
+        }
+    }
+    ARTICLE_SOURCE_KINDS.write().insert(kind, source_kinds);
 
     if let Some(descriptors) = ARTICLE_DESCRIPTOR_REPLACE.read().get(&kind) {
         for (index, article) in new_descriptors.iter_mut().enumerate() {
@@ -488,6 +507,8 @@ decl_hooks_kirby! {
     copy_hook_4(12, 0xba5434)
 }
 
+static EMPTY_WHITELIST: Vec<i32> = Vec::new();
+
 unsafe fn kirby_get_copy_articles(ctx: &mut InlineCtx, store_reg: usize) {
     let kind = CURRENT_KIRBY_COPY.load(Ordering::Relaxed);
 
@@ -506,11 +527,16 @@ unsafe fn kirby_get_copy_articles(ctx: &mut InlineCtx, store_reg: usize) {
     let mut new_descriptors: Vec<ArticleDescriptor> = (*kirby_descriptors).articles_as_slice().to_vec();
     let fighter_articles: Vec<ArticleDescriptor> = (*fighter_data).articles_as_slice().to_vec();
 
-    let whitelist = kirby_copy_whitelist.get(&kind);
+    let legacy_whitelist = LEGACY_KIRBY_WHITELIST.read();
+    let legacy = legacy_whitelist.get(&kind);
+    let source_kinds = ARTICLE_SOURCE_KINDS.read().get(&kind).cloned().unwrap_or_default();
+    let whitelist = kirby_copy_whitelist.get(&kind).or(legacy.map(|_| &EMPTY_WHITELIST));
 
     for (index, article) in fighter_articles.iter().enumerate() {
         let generate_article_id = index as i32;
-        let whitelisted = whitelist.map_or(false, |list| list.contains(&generate_article_id));
+        let source = source_kinds.get(index).copied().unwrap_or(article.weapon_id);
+        let whitelisted = whitelist.map_or(false, |list| list.contains(&generate_article_id))
+            || legacy.map_or(false, |kinds| kinds.contains(&source));
 
         match new_descriptors.iter().position(|d| d.weapon_id == article.weapon_id) {
             // Kirby already has this article; a whitelisted entry takes the fighter's full descriptor.

@@ -340,11 +340,23 @@ unsafe fn raw_str(ptr: u64, len: u64) -> String {
 /// In 1.6.x x2 is a small article id and x3 a pointer; in 2.0 x2 is a pointer and x3 a length.
 /// A 1.6.x caller reads only w0, so it gets back its old return value: the clone's index in the
 /// owner's list of new articles.
+thread_local! {
+    // compat: set by the last clone_weapon call on this thread. Plugins register from their main()
+    // one at a time, so the follow-up update_weapon_count/whitelist calls come from the same plugin.
+    static LEGACY_CALLER: std::cell::Cell<bool> = std::cell::Cell::new(false);
+}
+
+/// A 1.6.x-shaped (fighter or kind) argument: the last clone was 1.6.x, or the value cannot be a fighter id.
+fn is_legacy_call(first: i32) -> bool {
+    LEGACY_CALLER.with(|flag| flag.get()) || LOWERCASE_FIGHTER_NAMES.get(first as usize).is_none()
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn smashline_clone_weapon(
     a0: u64, a1: u64, a2: u64, a3: u64, a4: u64, a5: u64, a6: u64, a7: u64,
 ) -> u64 {
     let legacy = a2 < 0x10000 && a3 >= 0x10000;
+    LEGACY_CALLER.with(|flag| flag.set(legacy));
     if legacy {
         let original_owner = raw_str(a0, a1);
         let new_owner = raw_str(a3, a4);
@@ -553,6 +565,16 @@ pub extern "C" fn smashline_update_weapon_count(
     generate_article_id: i32,
     new_count: i32,
 ) {
+    // 1.6.x: (weapon_kind, new_count), applied to every article of that kind, clones included.
+    if is_legacy_call(fighter_id) {
+        let (weapon_kind, count) = (fighter_id, generate_article_id);
+        slog!("update_weapon_count[1.6](kind={}, count={})", weapon_kind, count);
+        crate::cloning::fighters::descriptors::LEGACY_WEAPON_COUNT
+            .write()
+            .insert(weapon_kind, count);
+        crate::cloning::invalidate_article_cache();
+        return;
+    }
     slog!("update_weapon_count(fighter={}, article={}, count={})", fighter_id, generate_article_id, new_count);
     let mut descriptors = crate::cloning::fighters::descriptors::ARTICLE_DESCRIPTOR_REPLACE.write();
     let descriptor = descriptors
@@ -593,6 +615,18 @@ pub extern "C" fn smashline_whitelist_kirby_copy_article(
     fighter_id: i32,
     generate_article_id: i32,
 ) {
+    // 1.6.x: (fighter_id, weapon_kind). Same shape as 2.0, so only the caller tells them apart.
+    if LEGACY_CALLER.with(|flag| flag.get()) {
+        slog!("whitelist_kirby_copy_article[1.6](fighter={}, kind={})", fighter_id, generate_article_id);
+        let mut legacy = crate::cloning::fighters::descriptors::LEGACY_KIRBY_WHITELIST.write();
+        let kinds = legacy.entry(fighter_id).or_default();
+        if !kinds.contains(&generate_article_id) {
+            kinds.push(generate_article_id);
+        }
+        drop(legacy);
+        crate::cloning::invalidate_article_cache();
+        return;
+    }
     slog!("whitelist_kirby_copy_article(fighter={}, article={})", fighter_id, generate_article_id);
     let mut copy_whitelist = crate::cloning::fighters::descriptors::KIRBY_COPY_ARTICLE_WHITELIST.write();
     if let Some(whitelist) = copy_whitelist.get_mut(&fighter_id) {
