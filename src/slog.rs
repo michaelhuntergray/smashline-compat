@@ -11,6 +11,19 @@ pub fn log(msg: &str) {
     }
 }
 
+static SEEN: std::sync::Mutex<Vec<(&'static str, u64)>> = std::sync::Mutex::new(Vec::new());
+
+/// Log `tag value` only the first time this pair is seen.
+pub fn once(tag: &'static str, value: u64) {
+    let Ok(mut seen) = SEEN.lock() else { return };
+    if seen.contains(&(tag, value)) {
+        return;
+    }
+    seen.push((tag, value));
+    drop(seen);
+    log(&format!("{} {:#x}", tag, value));
+}
+
 #[macro_export]
 macro_rules! install_logged {
     ($($h:ident),* $(,)?) => { $( $crate::slog!("hook {}", stringify!($h)); skyline::install_hook!($h); )* };

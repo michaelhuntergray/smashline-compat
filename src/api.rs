@@ -91,6 +91,7 @@ pub extern "C" fn smashline_install_acmd_script_costume(
     priority: Priority,
     function: unsafe extern "C" fn(&mut L2CAgentBase),
 ) {
+    crate::slog::once("acmd agent", agent.0);
     mark_costume(agent, costume);
 
     if unsafe { crate::runtime_reload::LOADING_DEVELOPMENT_SCRIPTS } {
@@ -150,6 +151,7 @@ pub extern "C" fn smashline_install_status_script_costume(
     line: StatusLine,
     function: *const (),
 ) {
+    crate::slog::once("status agent", agent.map_or(0, |x| x.get()));
     let agent = agent
         .map(|x| Hash40(x.get()))
         .unwrap_or(Hash40::new("common"));
