@@ -324,16 +324,54 @@ pub extern "C" fn smashline_reload_script(
     );
 }
 
+/// Reads a `StringFFI` passed by value as its two registers (ptr, len).
+unsafe fn raw_str(ptr: u64, len: u64) -> String {
+    let bytes = std::slice::from_raw_parts(ptr as *const u8, len as usize);
+    std::str::from_utf8(bytes).unwrap().to_string()
+}
+
+/// Compat: both the 1.6.x and 2.0 layouts arrive at this one symbol.
+///
+/// 1.6.x: `(original_owner: StringFFI, original_article_id: i32, new_owner: StringFFI, new_name: StringFFI, use_original_code: bool) -> i32`
+///        x0,x1 = original_owner; w2 = id; x3,x4 = new_owner; x5,x6 = new_name; w7 = bool
+/// 2.0:   `(owner_name: StringFFI, article_name: StringFFI, original_article_id: i32, use_original_code: bool) -> CloneWeapon`
+///        x0,x1 = owner_name; x2,x3 = article_name; w4 = id; w5 = bool
+///
+/// In 1.6.x x2 is a small article id and x3 a pointer; in 2.0 x2 is a pointer and x3 a length.
+/// A 1.6.x caller reads only w0, so it gets back its old return value: the clone's index in the
+/// owner's list of new articles.
 #[no_mangle]
-pub extern "C" fn smashline_clone_weapon(
-    owner_name: StringFFI,
-    article_name: StringFFI,
+pub unsafe extern "C" fn smashline_clone_weapon(
+    a0: u64, a1: u64, a2: u64, a3: u64, a4: u64, a5: u64, a6: u64, a7: u64,
+) -> u64 {
+    let legacy = a2 < 0x10000 && a3 >= 0x10000;
+    if legacy {
+        let original_owner = raw_str(a0, a1);
+        let new_owner = raw_str(a3, a4);
+        let new_name = raw_str(a5, a6);
+        let id = a2 as i32;
+        slog!("clone_weapon[1.6] {}#{} -> {}_{} use_orig={}", original_owner, id, new_owner, new_name, a7 as u8 != 0);
+        let result = clone_weapon_impl(new_owner.clone(), new_name, id, a7 as u8 != 0);
+        let owner_id = LOWERCASE_FIGHTER_NAMES
+            .iter()
+            .position(|name| name == new_owner)
+            .unwrap();
+        let index = result.generate_id - MAX_GENERATE_ARTICLE_IDS[owner_id] - 1;
+        slog!("  -> generate_id={} weapon_id={:#x} legacy index={}", result.generate_id, result.weapon_id, index);
+        index as u32 as u64
+    } else {
+        let result = clone_weapon_impl(raw_str(a0, a1), raw_str(a2, a3), a4 as i32, a5 as u8 != 0);
+        (result.generate_id as u32 as u64) | ((result.weapon_id as u32 as u64) << 32)
+    }
+}
+
+fn clone_weapon_impl(
+    owner_name: String,
+    article_name: String,
     original_article_id: i32,
     use_original_code: bool,
 ) -> CloneWeapon {
-    slog!("clone_weapon(id={}, use_orig={})", original_article_id, use_original_code);
-    let owner_name = owner_name.as_str().unwrap().to_string();
-    let article_name = article_name.as_str().unwrap().to_string();
+    slog!("clone_weapon({}_{}, id={}, use_orig={})", owner_name, article_name, original_article_id, use_original_code);
     println!(
         "[smashline::cloning] New weapon {}_{} is being cloned!",
         owner_name, article_name
